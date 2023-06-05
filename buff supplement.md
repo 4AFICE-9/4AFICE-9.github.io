@@ -31,4 +31,8 @@ sendline(line) - 发送数据加一个换行
 pack(int) /p(32/64)- 打包发送一个字（word）大小的整数
 unpack() u(32/64)- 接收并解包一个字（word）大小的整数
 ```
+3.int0x80h:linux系统调用
+[系统调用表](https://firmianay.gitbook.io/ctf-all-in-one/9_appendix/9.4_linux_syscall)
+
+
 
