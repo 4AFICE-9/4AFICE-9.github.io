@@ -1,0 +1,786 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" name="viewport"><meta name="description" content="OS | synchronization mechanism"><meta name="hexo-theme-A4" content="v1.7.0"><link rel="alternate icon" type="image/webp" href="/img/favicon.webp"><title>4AF | Dont waste life</title><link rel="stylesheet" href="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/css/reset.css"><link rel="stylesheet" href="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/css/markdown.css"><link rel="stylesheet" href="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/css/fonts.css"><link rel="stylesheet" href="/css/ui.css"><link rel="stylesheet" href="/css/style.css"><meta name="generator" content="Hexo 5.4.2"></head><style>:root{--waline-theme-color:#000000;--waline-color:#000000;--waline-border-color:#000000;--waline-white:#000000;--waline-bgcolor-light:#ffffff}body{color:#000;background:#e4e4e4}.post-md code{background:#fff;color:#34900b}.year-font-color{color:#000!important}.wl-card span.wl-nick{color:#000}.wl-card .wl-badge{border:1px solid #000;color:#000}.wl-btn{border:1px solid #000;color:#000}.wl-btn.primary{color:#fff}.wl-header label{color:#000}a{color:#4f7dde}.post-md a{color:#4f7dde}.nav li a{color:#4f7dde}.archive-main a:link{color:#4f7dde}.archive-main a:visited{color:#000}.archive li span{color:#000}.post-main-title{color:#000}.post-md h1,.post-md h2,.post-md h3,.post-md h4,.post-md h5,.post-md h6{color:#000}[data-waline] p{color:#000}[data-waline] a{color:#000}.wl-sort li.active{color:#000}.wl-card .wl-meta>span{background:#fff}.paper{background:#e4e4e4}.index-main{background:#fff}.paper-main{background:#fff}.wl-panel{background:#fff}.archive li:nth-child(odd){background:#fff}.archive li:nth-child(even){background:#fff}.post-md>table tr:nth-child(odd) td{background:#fff}.post-md>table tr:nth-child(even) td{background:#fff}</style><body><div class="paper"><div class="shadow-drop-2-bottom paper-main"><div class="header"><div class="header-container"><img style="width:56px;height:auto" alt="^-^" cache-control="max-age=86400" class="header-img" src="/img/favicon.webp" width="10%"><div class="header-content"><a class="logo" href="/">4AF</a> <span class="description"></span></div></div><ul class="nav"><li><a href="/index/">Home</a></li><li><a href="/list/">Archive</a></li></ul></div><div class="post-main"><div class="post-main-title">OS | synchronization mechanism</div><div class="post-md"><ol class="post-toc"><li class="post-toc-item post-toc-level-1"><a class="post-toc-link" href="#Dining-Philosopher-Problem-Using-Semaphores"><span class="post-toc-text">Dining Philosopher Problem Using Semaphores</span></a></li><li class="post-toc-item post-toc-level-1"><a class="post-toc-link" href="#Bounded-buffer-or-Producer-Consumer-problem"><span class="post-toc-text">Bounded-buffer(or Producer-Consumer) problem</span></a></li><li class="post-toc-item post-toc-level-1"><a class="post-toc-link" href="#Readers-and-Writers-Problem-Pthreds-monitor-in-used"><span class="post-toc-text">Readers and Writers Problem:Pthreds monitor in used</span></a></li><li class="post-toc-item post-toc-level-1"><a class="post-toc-link" href="#Sleeping-Barber-Problem"><span class="post-toc-text">Sleeping Barber Problem</span></a></li></ol><p>In this Article,we will focuses on the classic problems of process synchronization</p><h1 id="Dining-Philosopher-Problem-Using-Semaphores"><a href="#Dining-Philosopher-Problem-Using-Semaphores" class="headerlink" title="Dining Philosopher Problem Using Semaphores"></a>Dining Philosopher Problem Using Semaphores</h1><p>Why don’t you eat with a fork?</p><p><font color="yellow" size="4">[Problem description]</font>: 5 philosophers share a round table. They each sit on a chair on the round table. There are 5 bowls and 5 chopsticks on the round table. Their lifestyle is to alternately think and eat;<br>Usually, when a philosopher is thinking, he will try to use the chopsticks closest to him on the left and right sides when he is hungry. He can only eat when he has two chopsticks; after eating, he puts down his chopsticks and continues to think.</p><p>“The main challenge in the dining philosophers’ problem is preventing deadlocks. Deadlock occurs when each philosopher picks up one chopstick and is waiting indefinitely for the other chopstick. This situation leads to a system-wide halt, and no philosopher can make progress. Resolving the deadlock issue while allowing all philosophers to eat without starvation requires careful synchronization and resource allocation.”</p><p>抽象<br>筷子：临界资源–&gt;锁；<br>哲学家：线程</p><p>In fact Each philosopher is represented by the following preudocode:</p><pre class="language-none"><code class="language-none">process p[i]
+while true do&#123;
+    THINK;
+    PICKUP(chopstick[i],chopstick[i+1 mod 5])
+    PICKUP(chopstick[i],chopstick[i+1 mod 5])
+&#125;</code></pre><p>策略1：至多允许4位哲学家就餐，最终可以保证至少有一位哲学家就餐，干完饭后，释放筷子资源。</p><p>0 A 1 B 2 C 3 D 4 E 0&lt;—–假设筷子编号为i,i从0开始计起，那么E要拿右边的筷子（圆桌，所以右边的筷子是A的左边的0），所以i=(i+1)%5才能算出来。</p><pre class="language-c++" data-language="c++"><code class="language-c++">semaphore chopstick&#x3D; &#123;1,1,1,1,1&#125;;
+semaphore count &#x3D; 4; &#x2F;&#x2F;控制最多只允许4人进餐
+void philosopher(int i)
+&#123;   while(true)
+    &#123;
+        think();
+        P(count);
+
+        &#x2F;&#x2F;请求，每进行一次请求count值减1
+        P(chopstick[i]); &#x2F;&#x2F;拿左边筷子
+        P(chopstick[(i+1)%5]); &#x2F;&#x2F;拿右边筷子
+        eat();
+
+        &#x2F;&#x2F;释放
+        V(chopstick[i]);
+        V(chopstick[(i+1)%5]);
+        V(count);
+
+    &#125;
+
+&#125;
+
+————按照这种方案调度——————————————
+Count:
+A:3
+B:2
+C:1
+D:0
+E:-1 --阻塞在--&gt;V(count)，就无法向下进行，所以只允许4人</code></pre><ul><li>避免死锁：<pre class="language-none"><code class="language-none">- 当得不到所有资源时，放弃已经获得的所有资源，等待
+- 保证资源的获取顺序，要求每个线程获取资源的顺序一致</code></pre></li></ul><p>策略2:仅当哲学家的左右两根筷子均可用时，才允许他拿起筷子就餐。（借助管程）</p><p>即左右邻居都没有进餐时，才可请求筷子。</p><pre class="language-c++" data-language="c++"><code class="language-c++">monitor manage&#123;
+    enum&#123;thinking,hungry,eating&#125;state[5];
+    codition self[5];
+    initialization_code()&#123;
+        for(int i&#x3D;0;i&lt;5;i++)
+        state[i]&#x3D;thinking;
+    &#125;
+    void pickup(int i)&#123;&#x2F;&#x2F;初始化所有哲学家的状态
+        state[i]&#x3D;hungry;
+        test(i);
+        if(state[i]!&#x3D;eating)self[i].wait();
+    &#125;
+
+    void putdown(int i)&#123;
+        state[i]&#x3D;thinking;
+
+        &#x2F;&#x2F;测试两邻居均不进餐
+        test((i+4)%5); &#x2F;&#x2F;左
+        test((i+1%5)); &#x2F;&#x2F;右
+
+    &#125;
+
+    void test(int i)&#123;
+        &#x2F;&#x2F;满足条件：左不吃，哲学家饿，右不吃
+        if(state[(i+4)%5]!&#x3D;eating )&amp;&amp;(state[i]&#x3D;&#x3D;hungry)&amp;&amp;(state[(i+1)%5]!&#x3D;eating)&#123;
+            state[i]&#x3D;eating;
+            self[i].signal();
+        &#125;
+    &#125;
+
+&#125;
+
+do&#123;
+    manage.pickup(i);
+    
+    eat();
+    
+    manage.putdown(i);
+    
+&#125;while(True)
+
+</code></pre><p>策略3：规定奇数号哲学家（B,D）先拿左边的筷子，然后再去拿右边的筷子；而偶数号哲学家(A,C,E)则相反.按此规定，A、B哲学家将竞争1号筷子(或者说A抢先拿到右边的1号，后面B没抢到左边的1号，所以被阻塞，也就保证了了至少有一个人在进餐)；C、D号哲学家将竞争3号筷子（C先抢走了3）。即5位哲学家都先抢占奇数号筷子，获得后，再去竞争偶数号筷子，最后总有一位哲学家能获得两根筷子进餐。</p><p>要求:<br>奇数哲学家BD—&gt;左，右<br>偶数哲学家ACE—&gt;右，左</p><p><img src="27d29c8e45a1f87389ed464029aad42a.png"></p><pre class="language-c++" data-language="c++"><code class="language-c++">semaphore chopstick&#x3D;&#123;1,1,1,1,1&#125;;
+void philosopher()&#123;
+
+    do&#123;
+        if(i%2&#x3D;&#x3D;1)
+        P(chopstick[i]);
+        P(chopstick[i+1]%5);
+
+        else&#123;
+            P(chopstick[i+1]%5);
+            P(chopstick[i]);
+
+        &#125;
+
+        eat();
+        V(chopstick[i]);
+        V(chopstick[i+1]%5);
+        think();
+
+
+    &#125;while(True)
+&#125;
+</code></pre><p><font color="green" size="5">Complete C code</font></p><pre class="language-c" data-language="c"><code class="language-c"><span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;pthread.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;semaphore.h></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">include</span> <span class="token string">&lt;stdio.h></span></span>
+
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">N</span> <span class="token expression"><span class="token number">5</span></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">THINKING</span> <span class="token expression"><span class="token number">2</span></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">HUNGRY</span> <span class="token expression"><span class="token number">1</span></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name">EATING</span> <span class="token expression"><span class="token number">0</span></span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name function">left</span><span class="token expression"><span class="token punctuation">(</span>pNum<span class="token operator">+</span><span class="token number">4</span><span class="token punctuation">)</span><span class="token operator">%</span>N</span></span>
+<span class="token macro property"><span class="token directive-hash">#</span><span class="token directive keyword">define</span> <span class="token macro-name function">right</span><span class="token expression"><span class="token punctuation">(</span>pNum<span class="token operator">+</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token operator">%</span>N</span></span>
+
+<span class="token keyword">int</span> state<span class="token punctuation">[</span>N<span class="token punctuation">]</span><span class="token punctuation">;</span>
+<span class="token keyword">int</span> philo<span class="token punctuation">[</span>N<span class="token punctuation">]</span><span class="token operator">=</span><span class="token punctuation">&#123;</span><span class="token number">0</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span><span class="token number">2</span><span class="token punctuation">,</span><span class="token number">3</span><span class="token punctuation">,</span><span class="token number">4</span><span class="token punctuation">&#125;</span><span class="token punctuation">;</span>
+
+<span class="token class-name">sem_t</span> mutex<span class="token punctuation">;</span>
+<span class="token class-name">sem_t</span> S<span class="token punctuation">[</span>N<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+
+<span class="token comment">//if neighbors are  not eating,start EATING!</span>
+<span class="token keyword">void</span> <span class="token function">test</span><span class="token punctuation">(</span><span class="token keyword">int</span> pNum<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">if</span><span class="token punctuation">(</span>state<span class="token punctuation">[</span>pNum<span class="token punctuation">]</span><span class="token operator">==</span>HUNGRY <span class="token operator">&amp;&amp;</span> state<span class="token punctuation">[</span>left<span class="token punctuation">]</span><span class="token operator">!=</span>EATING <span class="token operator">&amp;&amp;</span> state<span class="token punctuation">[</span>right<span class="token punctuation">]</span><span class="token operator">!=</span>EATING<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+
+        state<span class="token punctuation">[</span>pNum<span class="token punctuation">]</span><span class="token operator">=</span>EATING<span class="token punctuation">;</span>
+        <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">2</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">//pickuo chop</span>
+<span class="token keyword">void</span> <span class="token function">pickup</span><span class="token punctuation">(</span><span class="token keyword">int</span> pNum<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token function">sem_wait</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    state<span class="token punctuation">[</span>pNum<span class="token punctuation">]</span><span class="token operator">=</span>HUNGRY<span class="token punctuation">;</span>
+
+    <span class="token comment">//eat if neighbors are not eating</span>
+    <span class="token function">test</span><span class="token punctuation">(</span>pNum<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">sem_post</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token comment">//if unable to eat wait to be signalled</span>
+    <span class="token function">sem_wait</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>S<span class="token punctuation">[</span>pNum<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token punctuation">&#125;</span>
+
+<span class="token comment">//putdown chop and start THINKING</span>
+<span class="token keyword">void</span> <span class="token function">putdown</span><span class="token punctuation">(</span><span class="token keyword">int</span> pNum<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token function">sem_wait</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    state<span class="token punctuation">[</span>pNum<span class="token punctuation">]</span> <span class="token operator">=</span> THINKING<span class="token punctuation">;</span>
+
+    <span class="token function">test</span><span class="token punctuation">(</span>left<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token function">test</span><span class="token punctuation">(</span>right<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+    <span class="token function">sem_post</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">void</span><span class="token operator">*</span> <span class="token function">philosopher</span><span class="token punctuation">(</span><span class="token keyword">void</span><span class="token operator">*</span> num<span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+
+<span class="token keyword">while</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    
+    <span class="token keyword">int</span><span class="token operator">*</span> i<span class="token operator">=</span> num<span class="token punctuation">;</span>
+    <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">pickup</span><span class="token punctuation">(</span><span class="token operator">*</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">sleep</span><span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token function">putdown</span><span class="token punctuation">(</span><span class="token operator">*</span>i<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#125;</span>
+
+<span class="token keyword">int</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">int</span> i<span class="token punctuation">;</span>
+    <span class="token class-name">pthread_t</span> thread_id<span class="token punctuation">[</span>N<span class="token punctuation">]</span><span class="token punctuation">;</span>
+
+    <span class="token comment">//initialize the semaphores</span>
+    <span class="token function">sem_init</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>mutex<span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">for</span><span class="token punctuation">(</span>i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span>N<span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span>
+        <span class="token function">sem_init</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>S<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">for</span><span class="token punctuation">(</span><span class="token keyword">int</span> i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span>N<span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span>
+        <span class="token comment">//create phiosopher process</span>
+        <span class="token function">pthread_create</span><span class="token punctuation">(</span><span class="token operator">&amp;</span>thread_id<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token constant">NULL</span><span class="token punctuation">,</span>philosopher<span class="token punctuation">,</span><span class="token operator">&amp;</span>philo<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">printf</span><span class="token punctuation">(</span><span class="token string">"Philosopher %d is thinking\n"</span><span class="token punctuation">,</span> i <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+    <span class="token keyword">for</span><span class="token punctuation">(</span>i<span class="token operator">=</span><span class="token number">0</span><span class="token punctuation">;</span>i<span class="token operator">&lt;</span>N<span class="token punctuation">;</span>i<span class="token operator">++</span><span class="token punctuation">)</span>
+        <span class="token function">pthread_join</span><span class="token punctuation">(</span>thread_id<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token constant">NULL</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+
+<span class="token punctuation">&#125;</span>
+</code></pre><ul><li>In this solution,a philo must acquire both the semapohore for the chop to their left and the semaphore for the chop to their right before they can begin eating.IF cannot acquire both semaphores,they must wait until they become available.</li><li>The use of the mutex semaphore ensures that only one philosopher can attempt to pick up a fork at a time, while the use of the chopsticks semaphores ensures that a philosopher can only eat if both forks are available.</li></ul><p><font color="pink" size="5">Complete Python3 code</font></p><pre class="language-python" data-language="python"><code class="language-python"><span class="token keyword">import</span> threading
+<span class="token keyword">import</span> time
+<span class="token keyword">import</span> random
+ 
+<span class="token comment"># Define the number of philosophers and forks</span>
+num_philosophers <span class="token operator">=</span> <span class="token number">5</span>
+num_chops <span class="token operator">=</span> num_philosophers
+ 
+<span class="token comment"># Define semaphores for the forks and the mutex</span>
+forks <span class="token operator">=</span> <span class="token punctuation">[</span>threading<span class="token punctuation">.</span>Semaphore<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>num_chops<span class="token punctuation">)</span><span class="token punctuation">]</span>
+mutex <span class="token operator">=</span> threading<span class="token punctuation">.</span>Semaphore<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+ 
+<span class="token comment"># Define the philosopher thread function</span>
+<span class="token keyword">def</span> <span class="token function">philosopher</span><span class="token punctuation">(</span>index<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Philosopher </span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string"> is thinking..."</span></span><span class="token punctuation">)</span>
+        time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>random<span class="token punctuation">.</span>randint<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+         
+        mutex<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+         
+        left_chops_index <span class="token operator">=</span> index
+        right_chops_index <span class="token operator">=</span> <span class="token punctuation">(</span>index <span class="token operator">+</span> <span class="token number">1</span><span class="token punctuation">)</span> <span class="token operator">%</span> num_chops
+         
+        forks<span class="token punctuation">[</span>left_chops_index<span class="token punctuation">]</span><span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        forks<span class="token punctuation">[</span>right_chops_index<span class="token punctuation">]</span><span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+         
+        mutex<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+         
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Philosopher </span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string"> is eating..."</span></span><span class="token punctuation">)</span>
+        time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>random<span class="token punctuation">.</span>randint<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+         
+        forks<span class="token punctuation">[</span>left_chops_index<span class="token punctuation">]</span><span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        forks<span class="token punctuation">[</span>right_chops_index<span class="token punctuation">]</span><span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+ 
+<span class="token comment"># Create a thread for each philosopher</span>
+philosopher_threads <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+<span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>num_philosophers<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    philosopher_threads<span class="token punctuation">.</span>append<span class="token punctuation">(</span>threading<span class="token punctuation">.</span>Thread<span class="token punctuation">(</span>target<span class="token operator">=</span>philosopher<span class="token punctuation">,</span> args<span class="token operator">=</span><span class="token punctuation">(</span>i<span class="token punctuation">,</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+     
+<span class="token comment"># Start the philosopher threads</span>
+<span class="token keyword">for</span> thread <span class="token keyword">in</span> philosopher_threads<span class="token punctuation">:</span>
+    thread<span class="token punctuation">.</span>start<span class="token punctuation">(</span><span class="token punctuation">)</span>
+     
+<span class="token comment"># Wait for the philosopher threads to complete</span>
+<span class="token keyword">for</span> thread <span class="token keyword">in</span> philosopher_threads<span class="token punctuation">:</span>
+    thread<span class="token punctuation">.</span>join<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre><p>Output</p><pre class="language-none"><code class="language-none">Philosopher 0 is thinking...
+Philosopher 1 is thinking...
+Philosopher 2 is thinking...
+Philosopher 3 is thinking...
+Philosopher 4 is thinking...
+Philosopher 1 is eating...
+Philosopher 2 is eating...
+Philosopher 0 is eating...
+Philosopher 4 is eating...
+Philosopher 3 is eating...
+Philosopher 1 is thinking...
+Philosopher 2 is thinking...
+Philosopher 3 is thinking...
+Philosopher 4 is thinking...
+Philosopher 0 is thinking...
+Philosopher 3 is eating...
+Philosopher 4 is eating...
+Philosopher 0 is eating...
+Philosopher 1 is eating...
+Philosopher 2 is eating...
+Philosopher 0 is thinking...
+Philosopher 1 is thinking...
+Philosopher 2 is thinking...
+Philosopher 3 is thinking...
+Philosopher 4 is thinking...</code></pre><h1 id="Bounded-buffer-or-Producer-Consumer-problem"><a href="#Bounded-buffer-or-Producer-Consumer-problem" class="headerlink" title="Bounded-buffer(or Producer-Consumer) problem"></a>Bounded-buffer(or Producer-Consumer) problem</h1><p><font color="yellow" size="4">[Problem description]</font>There is a fixed-size buffer, and this buffer is operated by two threads with different work properties. One of the threads is responsible for writing data to the buffer, which we call the producer thread. Another thread is responsible for getting data from the buffer and is called a consumer thread.</p><p>生产和消费的规则：<br>1.缓冲区空，消费者停止消费（禁读）。缓冲区满，生产者停止生产（禁写）。<br>2.生产者和消费者必须互斥地访问公共区域，通俗讲就是在任意时刻最多只允许一个生产或一个消费者进入公共区域。<br>3.须保持线程间的同步，也就是一个线程生产/消费完，其他线程才能竞争CPU，获得消费/生产的机会，可以借助条件变量实现；生产者在produce之前，需要先wait直至获取自己需要的semaphore之后，才能produce，同理，消费者需要先wait直至没有其他线程占用缓冲区时，才能consume,之后唤醒其他待用的处在waitlist的阻塞的线程。</p><p>The pseudocode of the data structure shared by the two roles is as follows:</p><pre class="language-c" data-language="c"><code class="language-c"><span class="token keyword">int</span> n<span class="token punctuation">;</span> <span class="token comment">//缓冲池中n个缓冲区，每个缓冲区可存一个数据项</span>
+semaphore mutex <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span> 
+semaphore empty <span class="token operator">=</span> n<span class="token punctuation">;</span>
+semaphore full <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>  <span class="token comment">//最初缓冲区都是空的，所以full=0,empty=n</span>
+</code></pre><pre class="language-c" data-language="c"><code class="language-c"><span class="token function">producer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+        
+        <span class="token comment">//请求缓冲区</span>
+        <span class="token function">P</span><span class="token punctuation">(</span>empty<span class="token punctuation">)</span><span class="token punctuation">;</span> 
+        <span class="token function">P</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment">//把产品写入缓冲区</span>
+        <span class="token function">V</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">V</span><span class="token punctuation">(</span>full<span class="token punctuation">)</span><span class="token punctuation">;</span>
+    <span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#125;</span>
+
+<span class="token function">consumer</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+    <span class="token keyword">while</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">&#123;</span>
+
+        <span class="token comment">//请求消费</span>
+        <span class="token function">P</span><span class="token punctuation">(</span>full<span class="token punctuation">)</span><span class="token punctuation">;</span><span class="token comment">//消费一个产品</span>
+        <span class="token function">P</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+        <span class="token comment">//从缓冲区取出产品</span>
+        <span class="token function">V</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+        <span class="token function">V</span><span class="token punctuation">(</span>empty<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">//增加一个缓冲区</span>
+
+    <span class="token punctuation">&#125;</span>
+
+<span class="token punctuation">&#125;</span>
+
+
+<span class="token comment">// or u can use this format</span>
+<span class="token comment">//producer</span>
+<span class="token keyword">do</span><span class="token punctuation">&#123;</span>
+
+<span class="token comment">//produce an item</span>
+
+<span class="token function">wait</span><span class="token punctuation">(</span>empty<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">wait</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">//place in buffer</span>
+
+<span class="token function">signal</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">signal</span><span class="token punctuation">(</span>full<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token punctuation">&#125;</span><span class="token keyword">while</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span>
+
+
+<span class="token comment">//consumer</span>
+<span class="token keyword">do</span><span class="token punctuation">&#123;</span>
+
+<span class="token function">wait</span><span class="token punctuation">(</span>full<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">wait</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token comment">// consume item from buffer</span>
+
+<span class="token function">signal</span><span class="token punctuation">(</span>mutex<span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token function">signal</span><span class="token punctuation">(</span>empty<span class="token punctuation">)</span><span class="token punctuation">;</span>
+
+<span class="token punctuation">&#125;</span><span class="token keyword">while</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span>
+</code></pre><ul><li>产生了一个疑问是生产完一个的进程结束后消费进程开始消费一个还是一次生产满再一次消费完呢？<pre class="language-none"><code class="language-none">正解嗨：生产者生产一个物品后，消费者开始消费一个物品，而不是等待一次性生产满再一次性消费完。此种方式可以更好地控制资源的流动，避免资源的过度积累或消耗。</code></pre><img src="2325f8f1679ef6cfaf2e0fe0586b918b.png" alt="alt text"></li></ul><p><font color="pink" size="5">Complete C++ code</font></p><ul><li>缓冲区大小无限制</li></ul><pre class="language-c++" data-language="c++"><code class="language-c++">#include&lt;bits&#x2F;stdc++.h&gt;
+#include&lt;pthread.h&gt;
+#include&lt;semaphore.h&gt;
+#include&lt;unistd.h&gt;
+using namespace std;
+
+
+&#x2F;&#x2F;Declaration
+int N_thread,total_produced&#x3D;0,total_consume&#x3D;0;
+
+&#x2F;&#x2F;semaphore declaration
+sem_t notEmpty;
+
+
+&#x2F;&#x2F;producer part
+void* produce(void* arg)&#123;
+    while(1)&#123;
+        cout&lt;&lt;&quot;Producer produces item.&quot;&lt;&lt;endl; 
+        cout&lt;&lt;&quot;Total produced &#x3D; &quot;&lt;&lt;++total_produced&lt;&lt; 
+        &quot; Total consume &#x3D; &quot;&lt;&lt;total_consume*-1&lt;&lt;endl; 
+
+        sem_post(¬Empty);     
+        sleep(rand()%100*0.01); 
+    &#125; 
+&#125; 
+
+&#x2F;&#x2F;consumer part
+void* consume(void* arg)&#123;
+    while(1)&#123;
+        sem_wait(¬Empty); 
+        cout&lt;&lt;&quot;Consumer consumes item.&quot;&lt;&lt;endl;     
+        cout&lt;&lt;&quot;Total produced &#x3D; &quot;&lt;&lt;total_produced&lt;&lt; 
+        &quot; Total consume &#x3D; &quot;&lt;&lt;(--total_consume)*-1&lt;&lt;endl; 
+        sleep(rand()%100*0.01); 
+
+    &#125;
+&#125;
+
+int main(int argv,char*argc[])&#123;
+
+    &#x2F;&#x2F;thread declaration
+    pthread_t producer,consumer; 
+
+    &#x2F;&#x2F;declaration of attribute
+    pthread_attr_t attr; &#x2F;&#x2F;线程分配
+
+    &#x2F;&#x2F;semaphore ini
+    sem_init(¬Empty,0,0);
+
+    &#x2F;&#x2F;pthread_attr_t init
+    pthread_attr_init(&amp;attr); 
+    pthread_attr_setdetachstate(&amp;attr,PTHREAD_CREATE_JOINABLE); 
+
+    &#x2F;&#x2F; Creation of process 
+    N_thread&#x3D;pthread_create(&amp;producer,&amp;attr,produce,NULL); 
+    if(N_thread)&#123; 
+      cout&lt;&lt;&quot;Error in creating thread&quot;&lt;&lt;endl; 
+      exit(-1); 
+    &#125; 
+  
+    N_thread&#x3D;pthread_create(&amp;consumer,&amp;attr,consume,NULL); 
+    if(N_thread)&#123; 
+      cout&lt;&lt;&quot;Error in creating thread&quot;&lt;&lt;endl; 
+      exit(-1); 
+    &#125; 
+  
+    &#x2F;&#x2F; destroying the pthread_attr 
+    pthread_attr_destroy(&amp;attr); 
+  
+    &#x2F;&#x2F; Joining the thread 
+    N_thread&#x3D;pthread_join(producer,NULL); 
+    if(N_thread)&#123; 
+      cout&lt;&lt;&quot;Error in joining thread&quot;&lt;&lt;endl; 
+      exit(-1); 
+    &#125; 
+  
+    N_thread&#x3D;pthread_join(consumer,NULL); 
+    if(N_thread)&#123; 
+      cout&lt;&lt;&quot;Error in joining thread&quot;&lt;&lt;endl; 
+      exit(-1); 
+    &#125; 
+  
+    &#x2F;&#x2F; Exiting thread 
+    pthread_exit(NULL); 
+  
+    return 0; 
+
+&#125;
+</code></pre><p><em>sem_post(¬Empty); is used to increment the value of a semaphore. ¬Empty is not a standard C++ syntax but likely represents a placeholder for some variable or expression. The sem_post function is typically used in <font color="pink" size="3"><u>multithreaded programming to release resources and increment the semaphore value,</u></font> allowing other threads to proceed if they were waiting on that semaphore.</em></p><ul><li>缓冲区大小有限制</li></ul><pre class="language-c++" data-language="c++"><code class="language-c++">#include &lt;bits&#x2F;stdc++.h&gt;
+#include &lt;pthread.h&gt; 
+#include &lt;semaphore.h&gt; 
+#include &lt;unistd.h&gt; 
+using namespace std;
+
+&#x2F;&#x2F; Declaration 
+int r1, items &#x3D; 0; 
+  
+&#x2F;&#x2F; Semaphore declaration 
+sem_t notEmpty, notFull; 
+
+&#x2F;&#x2F; Producer part 
+void* produce(void* arg) 
+&#123; 
+    while (1) &#123; 
+        sem_wait(¬Full); &#x2F;&#x2F;not full to produce
+        sleep(rand() % 100 * 0.01); 
+        cout &lt;&lt;  
+      &quot;Producer produces item.Items Present &#x3D; &quot;
+             &lt;&lt; ++items &lt;&lt; endl; 
+        sem_post(¬Empty); 
+        sleep(rand() % 100 * 0.01);&#x2F;&#x2F;sleep in a random time 
+    &#125; 
+&#125; 
+
+&#x2F;&#x2F; Consumer part
+void* consume(void* arg) 
+&#123; 
+    while (1) &#123; 
+        sem_wait(¬Empty); &#x2F;&#x2F;非空就可继续消费
+        sleep(rand() % 100 * 0.01); 
+        cout &lt;&lt;  
+     &quot;Consumer consumes item.Items Present &#x3D; &quot;
+             &lt;&lt; --items &lt;&lt; endl; 
+        sem_post(¬Full); 
+        sleep(rand() % 100 * 0.01); 
+    &#125; 
+&#125; 
+int main(int argv, char* argc[]) 
+&#123; 
+  
+    int N; 
+    cout &lt;&lt;  
+      &quot;Enter the capacity of the buffer&quot; &lt;&lt; endl; 
+    cin &gt;&gt; N; 
+  
+    &#x2F;&#x2F; thread declaration 
+    pthread_t producer, consumer; 
+  
+    &#x2F;&#x2F; Declaration of attribute
+    pthread_attr_t attr; 
+  
+    &#x2F;&#x2F; semaphore initialization 
+    sem_init(¬Empty, 0, 0); 
+    sem_init(¬Full, 0, N); 
+  
+    &#x2F;&#x2F; pthread_attr_t initialization 
+    pthread_attr_init(&amp;attr);  &#x2F;&#x2F;初始化线程分配
+    pthread_attr_setdetachstate(&amp;attr, 
+             PTHREAD_CREATE_JOINABLE); 
+  
+    &#x2F;&#x2F; Creation of process 
+    r1 &#x3D; pthread_create(&amp;producer, &amp;attr,  
+                        produce, NULL); 
+    if (r1) &#123; 
+        cout &lt;&lt;  
+          &quot;Error in creating thread&quot; &lt;&lt; endl; 
+        exit(-1); 
+    &#125; 
+  
+    r1 &#x3D; pthread_create(&amp;consumer, &amp;attr,  
+                        consume, NULL); 
+    if (r1) &#123; 
+        cout &lt;&lt;  
+          &quot;Error in creating thread&quot; &lt;&lt; endl; 
+        exit(-1); 
+    &#125; 
+  
+    &#x2F;&#x2F; destroying the pthread_attr 
+    pthread_attr_destroy(&amp;attr); 
+  
+    &#x2F;&#x2F; Joining the thread 
+    r1 &#x3D; pthread_join(producer, NULL); 
+    if (r1) &#123; 
+        cout &lt;&lt; &quot;Error in joining thread&quot; &lt;&lt; endl; 
+        exit(-1); 
+    &#125; 
+  
+    r1 &#x3D; pthread_join(consumer, NULL); 
+    if (r1) &#123; 
+        cout &lt;&lt; &quot;Error in joining thread&quot; &lt;&lt; endl; 
+        exit(-1); 
+    &#125; 
+  
+    &#x2F;&#x2F; Exiting thread 
+    pthread_exit(NULL); 
+  
+    return 0; 
+&#125;
+</code></pre><blockquote><p><a target="_blank" rel="noopener" href="https://www.geeksforgeeks.org/">https://www.geeksforgeeks.org/</a></p></blockquote><h1 id="Readers-and-Writers-Problem-Pthreds-monitor-in-used"><a href="#Readers-and-Writers-Problem-Pthreds-monitor-in-used" class="headerlink" title="Readers and Writers Problem:Pthreds monitor in used"></a>Readers and Writers Problem:Pthreds monitor in used</h1><p><font color="yellow" size="4">[Problem description]</font>:There is a shared resource that is accessed by multiple processes i.e. readers and writers. Any number of readers can read from the shared resource simultaneously, but only one writer can write to the shared resource at a time. When a writer is writing data to the resource, no other process can access the resource. A writer cannot write to the resource if there are any readers accessing the resource at that time. Similarly, a reader can not read if there is a writer accessing the resource or if there are any waiting writers.</p><p>Overall,the previlege of writer is alway higher than any.</p><p>The Reader-Writer problem using a monitor can be implemented using pthreads. The POSIX threads (or pthread) libraries are a standards-based thread API for C/C++. The library provides the following synchronization mechanisms:</p><ul><li>互斥体 (pthread_mutex_t) – 互斥锁：<br>阻止其他线程对变量的访问。这强制线程对一个变量或一组变量进行独占访问。</li><li>条件变量 – (pthread_cond_t)：<br>条件变量机制允许线程暂停执行并放弃处理器，直到某些条件成立。</li></ul><p><font color="green" size="6">C code</font></p><pre class="language-c++" data-language="c++"><code class="language-c++">#include &lt;iostream&gt;
+#include &lt;pthread.h&gt;
+#include &lt;unistd.h&gt;
+using namespace std;
+ 
+class monitor &#123;
+private:
+    &#x2F;&#x2F; no. of readers
+    int rcnt;
+ 
+    &#x2F;&#x2F; no. of writers
+    int wcnt;
+ 
+    &#x2F;&#x2F; no. of readers waiting
+    int waitr;
+ 
+    &#x2F;&#x2F; no. of writers waiting
+    int waitw;
+ 
+    &#x2F;&#x2F; condition variable to check whether reader can read
+    pthread_cond_t canread;
+ 
+    &#x2F;&#x2F; condition variable to check whether writer can write
+    pthread_cond_t canwrite;
+ 
+    &#x2F;&#x2F; mutex for synchronization
+    pthread_mutex_t condlock;
+ 
+public:
+    monitor()
+    &#123;
+        rcnt &#x3D; 0;
+        wcnt &#x3D; 0;
+        waitr &#x3D; 0;
+        waitw &#x3D; 0;
+ 
+        pthread_cond_init(&amp;canread, NULL);
+        pthread_cond_init(&amp;canwrite, NULL);
+        pthread_mutex_init(&amp;condlock, NULL);
+    &#125;
+ 
+    &#x2F;&#x2F; mutex provide synchronization so that no other thread
+    &#x2F;&#x2F; can change the value of data
+    void beginread(int i)
+    &#123;
+        pthread_mutex_lock(&amp;condlock);
+ 
+        &#x2F;&#x2F; if there are active or waiting writers
+        if (wcnt &#x3D;&#x3D; 1 || waitw &gt; 0) &#123;
+            &#x2F;&#x2F; incrementing waiting readers
+            waitr++;
+ 
+            &#x2F;&#x2F; reader suspended
+            pthread_cond_wait(&amp;canread, &amp;condlock);
+            waitr--;
+        &#125;
+ 
+        &#x2F;&#x2F; else reader reads the resource
+        rcnt++;
+        cout &lt;&lt; &quot;reader &quot; &lt;&lt; i &lt;&lt; &quot; is reading\n&quot;;
+        pthread_mutex_unlock(&amp;condlock);
+        pthread_cond_broadcast(&amp;canread);
+    &#125;
+ 
+    void endread(int i)
+    &#123;
+ 
+        &#x2F;&#x2F; if there are no readers left then writer enters monitor
+        pthread_mutex_lock(&amp;condlock);
+ 
+        if (--rcnt &#x3D;&#x3D; 0)
+            pthread_cond_signal(&amp;canwrite);
+ 
+        pthread_mutex_unlock(&amp;condlock);
+    &#125;
+ 
+    void beginwrite(int i)
+    &#123;
+        pthread_mutex_lock(&amp;condlock);
+ 
+        &#x2F;&#x2F; a writer can enter when there are no active
+        &#x2F;&#x2F; or waiting readers or other writer
+        if (wcnt &#x3D;&#x3D; 1 || rcnt &gt; 0) &#123;
+            ++waitw;
+            pthread_cond_wait(&amp;canwrite, &amp;condlock);
+            --waitw;
+        &#125;
+        wcnt &#x3D; 1;
+        cout &lt;&lt; &quot;writer &quot; &lt;&lt; i &lt;&lt; &quot; is writing\n&quot;;
+        pthread_mutex_unlock(&amp;condlock);
+    &#125;
+ 
+    void endwrite(int i)
+    &#123;
+        pthread_mutex_lock(&amp;condlock);
+        wcnt &#x3D; 0;
+ 
+        &#x2F;&#x2F; if any readers are waiting, threads are unblocked
+        if (waitr &gt; 0)
+            pthread_cond_signal(&amp;canread);
+        else
+            pthread_cond_signal(&amp;canwrite);
+        pthread_mutex_unlock(&amp;condlock);
+    &#125;
+ 
+&#125;
+ 
+&#x2F;&#x2F; global object of monitor class
+M;
+ 
+void* reader(void* id)
+&#123;
+    int c &#x3D; 0;
+    int i &#x3D; *(int*)id;
+ 
+    &#x2F;&#x2F; each reader attempts to read 5 times
+    while (c &lt; 5) &#123;
+        usleep(1);
+        M.beginread(i);
+        M.endread(i);
+        c++;
+    &#125;
+&#125;
+ 
+void* writer(void* id)
+&#123;
+    int c &#x3D; 0;
+    int i &#x3D; *(int*)id;
+ 
+    &#x2F;&#x2F; each writer attempts to write 5 times
+    while (c &lt; 5) &#123;
+        usleep(1);
+        M.beginwrite(i);
+        M.endwrite(i);
+        c++;
+    &#125;
+&#125;
+ 
+int main()
+&#123;
+    pthread_t r[5], w[5];
+    int id[5];
+    for (int i &#x3D; 0; i &lt; 5; i++) &#123;
+        id[i] &#x3D; i;
+ 
+        &#x2F;&#x2F; creating threads which execute reader function
+        pthread_create(&amp;r[i], NULL, &amp;reader, &amp;id[i]);
+ 
+        &#x2F;&#x2F; creating threads which execute writer function
+        pthread_create(&amp;w[i], NULL, &amp;writer, &amp;id[i]);
+    &#125;
+ 
+    for (int i &#x3D; 0; i &lt; 5; i++) &#123;
+        pthread_join(r[i], NULL);
+    &#125;
+    for (int i &#x3D; 0; i &lt; 5; i++) &#123;
+        pthread_join(w[i], NULL);
+    &#125;
+&#125;
+</code></pre><h1 id="Sleeping-Barber-Problem"><a href="#Sleeping-Barber-Problem" class="headerlink" title="Sleeping Barber Problem"></a>Sleeping Barber Problem</h1><p><font color="yellow" size="4">[Problem description]</font>:There is a barber shop with one barber and a number of chairs for waiting customers. Customers arrive at random times and if there is an available chair, they take a seat and wait for the barber to become available. If there are no chairs available, the customer leaves. When the barber finishes with a customer, he checks if there are any waiting customers. If there are, he begins cutting the hair of the next customer in the queue. If there are no customers waiting, he goes to sleep.</p><p>The problem is to write a program that coordinates the actions of the customers and the barber in a way that avoids synchronization problems, such as deadlock or starvation.</p><p><img src="image.png"></p><p>策略1:用信号量来协调对等候椅和理发椅的访问。<br>solutions1:<br>初始化两个信号量，一个用于等候椅数量，一个用于理发椅。等候椅信号量被初始化为椅子的数量，理发椅信号量被初始化为零。顾客在等候室就座之前应获取等候椅信号量。如果没有可用的椅子，他们应该离开。<br>当理发师给顾客剪完头发后，他会释放理发椅信号量并检查是否有等待的顾客。如果有，他会获取理发椅信号量并开始为队列中的下一位顾客理发。如果没有顾客等待，理发师应该在理发椅信号灯上等待。</p><p>优点：该解决方案确保理发师不会一次为多名顾客理发，并且如果理发师很忙，顾客也会等待。它还确保理发师在没有顾客等待的情况下睡觉。<br>缺点：问题的一些变化可能需要更复杂的同步机制来避免同步问题。例如，如果采用多个理发师，则可能需要更复杂的机制来确保他们不会互相干扰。</p><p>策略2：<br>假设：一家理发店，一个理发师，一张理发椅，n张等候椅。</p><ul><li>若没有顾客，理发师就睡在自己的椅子上。（辛苦的理发师）</li><li>顾客到来时，必须叫醒理发师。</li><li>如果顾客很多，理发师正在给顾客理发，其他顾客要么有椅而坐，无椅离开。</li></ul><p>solutions2:<br>1.三个信号量，一个针对顾客，计算正在等待的顾客（不包括理发椅上的），一个用0/1表示理发师的状态是空闲还是工作，一个用于提供进程执行所需要的互斥。<br>2.由于顾客可以获知实时的等候椅数量，若Num_customer=Num_Waitingchair,则即将新到来的顾客离开。<br>3.当理发师开始工作时，执行barber程序，由于最初信号量为0，所以会阻止顾客semaphore customer.随即barber sleep，直到第一个顾客出现。待顾客到达时，执行顾客程序，顾客获取进入临界资源区域的互斥锁，如果此后另一个顾客进入，则第二个顾客将被阻塞，直到第一个顾客释放互斥锁。<br>4.然后，顾客检查等候室中的椅子，如果等待的顾客少于椅子数量，则他坐下，否则他离开并释放互斥体。如果椅子可用，则顾客坐在等候室中并增加可变等待值，并且还增加顾客的信号量，如果理发师正在睡觉，就唤醒理发师。此时，顾客和理发师都醒了，理发师准备给顾客理发。理发结束后，顾客退出程序，如果等候室里没有顾客，理发师就睡觉。</p><p><font color="green" size="6">C code of sleeping barber</font></p><pre class="language-c" data-language="c"><code class="language-c">Semaphore Customers <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+Semaphore Barber <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
+Mutex Seats <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+<span class="token keyword">int</span> FreeSeats <span class="token operator">=</span> N<span class="token punctuation">;</span>
+ 
+Barber <span class="token punctuation">&#123;</span>
+      <span class="token keyword">while</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">/* waits for a customer (sleeps). */</span>
+            <span class="token function">down</span><span class="token punctuation">(</span>Customers<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ 
+            <span class="token comment">/* mutex to protect the number of available seats.*/</span>
+            <span class="token function">down</span><span class="token punctuation">(</span>Seats<span class="token punctuation">)</span><span class="token punctuation">;</span>
+ 
+            <span class="token comment">/* a chair gets free.*/</span>
+            FreeSeats<span class="token operator">++</span><span class="token punctuation">;</span>
+            
+            <span class="token comment">/* bring customer for haircut.*/</span>
+            <span class="token function">up</span><span class="token punctuation">(</span>Barber<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            
+            <span class="token comment">/* release the mutex on the chair.*/</span>
+            <span class="token function">up</span><span class="token punctuation">(</span>Seats<span class="token punctuation">)</span><span class="token punctuation">;</span>
+            <span class="token comment">/* barber is cutting hair.*/</span>
+      <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+ 
+Customer <span class="token punctuation">&#123;</span>
+      <span class="token keyword">while</span><span class="token punctuation">(</span>true<span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+            <span class="token comment">/* protects seats so only 1 customer tries to sit
+               in a chair if that's the case.*/</span>
+            <span class="token function">down</span><span class="token punctuation">(</span>Seats<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">//This line should not be here.</span>
+            <span class="token keyword">if</span><span class="token punctuation">(</span>FreeSeats <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">)</span> <span class="token punctuation">&#123;</span>
+                  
+                  <span class="token comment">/* sitting down.*/</span>
+                  FreeSeats<span class="token operator">--</span><span class="token punctuation">;</span>
+                  
+                  <span class="token comment">/* notify the barber. */</span>
+                  <span class="token function">up</span><span class="token punctuation">(</span>Customers<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                  
+                  <span class="token comment">/* release the lock */</span>
+                  <span class="token function">up</span><span class="token punctuation">(</span>Seats<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                  
+                  <span class="token comment">/* wait in the waiting room if barber is busy. */</span>
+                  <span class="token function">down</span><span class="token punctuation">(</span>Barber<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                  <span class="token comment">// customer is having hair cut</span>
+            <span class="token punctuation">&#125;</span> <span class="token keyword">else</span> <span class="token punctuation">&#123;</span>
+                  <span class="token comment">/* release the lock */</span>
+                  <span class="token function">up</span><span class="token punctuation">(</span>Seats<span class="token punctuation">)</span><span class="token punctuation">;</span>
+                  <span class="token comment">// customer leaves</span>
+            <span class="token punctuation">&#125;</span>
+      <span class="token punctuation">&#125;</span>
+<span class="token punctuation">&#125;</span>
+</code></pre><p><font color="pink" size="6">python3 code</font></p><pre class="language-python" data-language="python"><code class="language-python"><span class="token keyword">import</span> threading
+<span class="token keyword">import</span> time
+<span class="token keyword">import</span> random
+ 
+<span class="token comment"># Define the maximum number of customers and the number of chairs in the waiting room</span>
+MAX_CUSTOMERS <span class="token operator">=</span> <span class="token number">5</span>
+NUM_CHAIRS <span class="token operator">=</span> <span class="token number">3</span>
+ 
+<span class="token comment"># Define the semaphores for the barber, the customers, and the mutex</span>
+barber_semaphore <span class="token operator">=</span> threading<span class="token punctuation">.</span>Semaphore<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+customer_semaphore <span class="token operator">=</span> threading<span class="token punctuation">.</span>Semaphore<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+mutex <span class="token operator">=</span> threading<span class="token punctuation">.</span>Semaphore<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
+ 
+<span class="token comment"># Define a list to keep track of the waiting customers</span>
+waiting_customers <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+ 
+<span class="token comment"># Define the barber thread function</span>
+<span class="token keyword">def</span> <span class="token function">barber</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string">"The barber is sleeping..."</span><span class="token punctuation">)</span>
+        barber_semaphore<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        mutex<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>waiting_customers<span class="token punctuation">)</span> <span class="token operator">></span> <span class="token number">0</span><span class="token punctuation">:</span>
+            customer <span class="token operator">=</span> waiting_customers<span class="token punctuation">.</span>pop<span class="token punctuation">(</span><span class="token number">0</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"The barber is cutting hair for customer </span><span class="token interpolation"><span class="token punctuation">&#123;</span>customer<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+            mutex<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+            time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>random<span class="token punctuation">.</span>randint<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+            <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"The barber has finished cutting hair for customer </span><span class="token interpolation"><span class="token punctuation">&#123;</span>customer<span class="token punctuation">&#125;</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+            customer_semaphore<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">else</span><span class="token punctuation">:</span>
+            mutex<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+     
+<span class="token comment"># Define the customer thread function</span>
+<span class="token keyword">def</span> <span class="token function">customer</span><span class="token punctuation">(</span>index<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    <span class="token keyword">global</span> waiting_customers
+    time<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span>random<span class="token punctuation">.</span>randint<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+    mutex<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+    <span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>waiting_customers<span class="token punctuation">)</span> <span class="token operator">&lt;</span> NUM_CHAIRS<span class="token punctuation">:</span>
+        waiting_customers<span class="token punctuation">.</span>append<span class="token punctuation">(</span>index<span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Customer </span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string"> is waiting in the waiting room"</span></span><span class="token punctuation">)</span>
+        mutex<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        barber_semaphore<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        customer_semaphore<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Customer </span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string"> has finished getting a haircut"</span></span><span class="token punctuation">)</span>
+    <span class="token keyword">else</span><span class="token punctuation">:</span>
+        <span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Customer </span><span class="token interpolation"><span class="token punctuation">&#123;</span>index<span class="token punctuation">&#125;</span></span><span class="token string"> is leaving because the waiting room is full"</span></span><span class="token punctuation">)</span>
+        mutex<span class="token punctuation">.</span>release<span class="token punctuation">(</span><span class="token punctuation">)</span>
+ 
+<span class="token comment"># Create a thread for the barber</span>
+barber_thread <span class="token operator">=</span> threading<span class="token punctuation">.</span>Thread<span class="token punctuation">(</span>target<span class="token operator">=</span>barber<span class="token punctuation">)</span>
+ 
+<span class="token comment"># Create a thread for each customer</span>
+customer_threads <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+<span class="token keyword">for</span> i <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>MAX_CUSTOMERS<span class="token punctuation">)</span><span class="token punctuation">:</span>
+    customer_threads<span class="token punctuation">.</span>append<span class="token punctuation">(</span>threading<span class="token punctuation">.</span>Thread<span class="token punctuation">(</span>target<span class="token operator">=</span>customer<span class="token punctuation">,</span> args<span class="token operator">=</span><span class="token punctuation">(</span>i<span class="token punctuation">,</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+     
+<span class="token comment"># Start the barber and customer threads</span>
+barber_thread<span class="token punctuation">.</span>start<span class="token punctuation">(</span><span class="token punctuation">)</span>
+<span class="token keyword">for</span> thread <span class="token keyword">in</span> customer_threads<span class="token punctuation">:</span>
+    thread<span class="token punctuation">.</span>start<span class="token punctuation">(</span><span class="token punctuation">)</span>
+     
+<span class="token comment"># Wait for the customer</span></code></pre><p><font color="pink" size="5">synchronization machanism</font></p><p>advantages：Efficient use of resources;Prevention of race conditions;Fairness;</p><p>disadvantages:</p><ul><li>Complexity:Implementing synchronization mechanisms can be complex, especially for larger systems or more complex synchronization scenarios.</li><li>Overhead: Synchronization mechanisms can introduce overhead in terms of processing time, memory usage, and other system resources.</li><li>Deadlocks: Incorrectly implemented synchronization mechanisms can lead to deadlocks, where processes are unable to proceed because they are waiting for resources that are held by other processes.</li></ul><p>but,只要正确有效地实现同步机制，使用同步机制解决“睡眠理发师问题”的优点通常大于缺点。</p></div><div class="post-meta"><i><span>2024-03-21</span> <span>该篇文章被 HuX1ey</span> <span>打上标签: <a href="/tags/Operating-System/">Operating System</a></span></i></div></div><div class="footer"><span>© 1949-2099</span></div><div class="footer-last"><span>🌊看过大海的人不会忘记海的广阔🌊</span> <span class="footer-last-span-right"><i>本站由<a target="_blank" rel="noopener" href="https://hexo.io/zh-cn/index.html">Hexo</a>驱动｜使用<a target="_blank" rel="noopener" href="https://github.com/HiNinoJay/hexo-theme-A4">Hexo-theme-A4</a>主题</i></span></div><link rel="stylesheet" href="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/css/a11y-dark.min.css"><script src="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/js/highlight.min.js"></script><script src="https://jsd.onmicrosoft.cn/npm/hexo-theme-a4@latest/source/js/highlightjs-line-numbers.js"></script><script>hljs.initHighlightingOnLoad(),hljs.initLineNumbersOnLoad()</script></div></div></body></html>
