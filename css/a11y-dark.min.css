@@ -10,15 +10,19 @@ Style with support for rainbow parens
 
 */
 
-.hljs {
-  background: #000000;
-  color: #d1d9e1;
-}
+/*这里的代码颜色优先级低于markdown.css文件里的.post-md code*/
 
+.hljs {
+  background: #000;
+  color: #36a007; 
+  max-width: 100%; /* 设置代码块的最大宽度为页面宽度 */
+  overflow-x: auto; /* 当代码块超出页面宽度时，添加横向滚动条 */
+  word-wrap: normal; /* 禁用自动换行，避免代码中断 */
+}
 
 .hljs-comment,
 .hljs-quote {
-  color: #969896;
+  color: #969896; /*代码块引用部分*/
   font-style: italic;
 }
 
